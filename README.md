@@ -1,4 +1,4 @@
-# PyKV — Distributed Key-Value Store
+# Helix — Distributed Key-Value Store
 
 Fault-tolerant, horizontally scalable KV store built from scratch in Python.
 Consistent hashing · leader-follower replication · WAL + LSM storage · heartbeat
