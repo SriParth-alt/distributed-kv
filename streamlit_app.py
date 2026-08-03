@@ -39,6 +39,15 @@ def start_cluster():
             break
         except requests.RequestException:
             time.sleep(0.5)
+    # seed demo data so the ring isn't empty for first-time visitors
+    try:
+        if requests.get(f"{ENTRY}/internal/status", timeout=2).json()["key_count"] == 0:
+            for i in range(18):
+                requests.put(f"{ENTRY}/kv/user:{i}",
+                             json={"value": {"name": f"user_{i}", "score": i * 10}},
+                             timeout=2)
+    except requests.RequestException:
+        pass
     return proc
 
 
