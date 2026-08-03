@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PyKV — Cluster Dashboard</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page:       #f9f9f7;
+    --surface:    #fcfcfb;
+    --ink:        #0b0b0b;
+    --ink-2:      #52514e;
+    --muted:      #898781;
+    --grid:       #e1e0d9;
+    --baseline:   #c3c2b7;
+    --border:     rgba(11,11,11,0.10);
+    --good:       #0ca30c;
+    --critical:   #d03b3b;
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+    --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page:     #0d0d0d;
+      --surface:  #1a1a19;
+      --ink:      #ffffff;
+      --ink-2:    #c3c2b7;
+      --muted:    #898781;
+      --grid:     #2c2c2a;
+      --baseline: #383835;
+      --border:   rgba(255,255,255,0.10);
+      --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+      --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--page); color: var(--ink);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 20px; max-width: 1180px; margin: 0 auto;
+  }
+  h1 { font-size: 19px; font-weight: 650; letter-spacing: -0.01em; }
+  h2 { font-size: 12px; font-weight: 600; color: var(--muted);
+       text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  header .sub { color: var(--ink-2); font-size: 13px; }
+  header .right { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .grid { display: grid; gap: 12px; }
+  .nodes { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: 12px; }
+  .main { grid-template-columns: minmax(340px, 5fr) minmax(300px, 4fr); align-items: start; }
+  @media (max-width: 860px) { .main { grid-template-columns: 1fr; } }
+
+  .node-card { display: flex; flex-direction: column; gap: 6px; }
+  .node-head { display: flex; align-items: center; gap: 8px; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .node-name { font-weight: 650; }
+  .node-addr { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+  .status.up   { color: var(--good); }
+  .status.down { color: var(--critical); }
+  .node-keys { font-size: 22px; font-weight: 650; }
+  .node-keys small { font-size: 12px; font-weight: 400; color: var(--muted); }
+  .crash {
+    margin-top: 4px; align-self: flex-start;
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    color: var(--ink-2); font: inherit; font-size: 12px; padding: 3px 10px; cursor: pointer;
+  }
+  .crash:hover:not(:disabled) { border-color: var(--critical); color: var(--critical); }
+  .crash:disabled { opacity: 0.4; cursor: default; }
+
+  #ring-wrap { position: relative; }
+  #ring-svg { width: 100%; height: auto; display: block; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--ink-2); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  #tooltip {
+    position: absolute; pointer-events: none; display: none; z-index: 5;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+    max-width: 240px;
+  }
+  #tooltip b { display: block; margin-bottom: 2px; }
+  #tooltip .t2 { color: var(--ink-2); }
+
+  form.op { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  input[type=text] {
+    background: var(--page); color: var(--ink); border: 1px solid var(--border);
+    border-radius: 7px; padding: 7px 10px; font: inherit; width: 100%;
+  }
+  input[type=text]:focus { outline: 2px solid var(--s1); outline-offset: -1px; border-color: transparent; }
+  .btnrow { grid-column: 1 / -1; display: flex; gap: 8px; }
+  .btn {
+    border: 1px solid var(--border); border-radius: 7px; background: var(--page);
+    color: var(--ink); font: inherit; font-weight: 600; font-size: 13px;
+    padding: 7px 16px; cursor: pointer;
+  }
+  .btn.primary { background: var(--s1); border-color: transparent; color: #fff; }
+  .btn:hover { filter: brightness(1.07); }
+  #oplog {
+    font: 12px/1.5 ui-monospace, Consolas, monospace; color: var(--ink-2);
+    background: var(--page); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; min-height: 72px; max-height: 170px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  #oplog .ok { color: var(--good); }  #oplog .err { color: var(--critical); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase;
+       letter-spacing: 0.05em; font-weight: 600; padding: 4px 8px 6px;
+       border-bottom: 1px solid var(--grid); }
+  td { padding: 5px 8px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+  td .swatch { display: inline-block; vertical-align: -1px; margin-right: 6px; }
+  .keycell { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  #keys-card { margin-top: 12px; max-height: 340px; overflow-y: auto; }
+  .empty { color: var(--muted); padding: 14px 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PyKV</h1>
+  <span class="sub">distributed key-value store — live cluster</span>
+  <span class="right" id="meta">connecting…</span>
+</header>
+
+<div class="grid nodes" id="nodes"></div>
+
+<div class="grid main">
+  <div class="card">
+    <h2>Consistent hash ring</h2>
+    <div id="ring-wrap">
+      <svg id="ring-svg" viewBox="0 0 460 460" role="img" aria-label="Consistent hash ring"></svg>
+      <div id="tooltip"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>Operations</h2>
+      <form class="op" id="opform">
+        <input type="text" id="opkey" placeholder="key   e.g. user:42" autocomplete="off">
+        <input type="text" id="opval" placeholder='value   e.g. {"name":"parth"}' autocomplete="off">
+        <div class="btnrow">
+          <button class="btn primary" type="submit">PUT</button>
+          <button class="btn" type="button" id="btnget">GET</button>
+          <button class="btn" type="button" id="btndel">DELETE</button>
+        </div>
+      </form>
+      <div id="oplog">— responses appear here —</div>
+    </div>
+    <div class="card" id="keys-card">
+      <h2>Keys <span id="keycount" style="text-transform:none;font-weight:400"></span></h2>
+      <div id="keys"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SLOTS = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7','--s8'];
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+let colorOf = {};          // node id -> css var (fixed at first sight of membership)
+let lastRing = null, lastCluster = null;
+
+function assignColors(members) {
+  const ids = Object.keys(members).sort();
+  ids.forEach((id, i) => { if (!(id in colorOf)) colorOf[id] = SLOTS[i % SLOTS.length]; });
+}
+const nodeColor = id => css(colorOf[id] || '--muted');
+
+// ------------------------------------------------------------------ polling
+async function refresh() {
+  try {
+    const [cluster, ring] = await Promise.all([
+      fetch('/internal/cluster').then(r => r.json()),
+      fetch('/internal/ring').then(r => r.json()),
+    ]);
+    lastCluster = cluster; lastRing = ring;
+    assignColors(cluster.members);
+    document.getElementById('meta').textContent =
+      `replication=${cluster.replication} · viewing via ${cluster.asked} · updated ${new Date().toLocaleTimeString()}`;
+    renderNodes(cluster);
+    renderRing(ring);
+    renderKeys(ring);
+  } catch (e) {
+    document.getElementById('meta').textContent = 'cluster unreachable — retrying…';
+  }
+}
+
+// ------------------------------------------------------------------ node cards
+function renderNodes(cluster) {
+  const el = document.getElementById('nodes');
+  el.innerHTML = '';
+  for (const n of cluster.nodes) {
+    const id = n.node_id;
+    const up = n.reachable;
+    const card = document.createElement('div');
+    card.className = 'card node-card';
+    card.innerHTML = `
+      <div class="node-head">
+        <span class="swatch" style="background:${nodeColor(id)}"></span>
+        <span class="node-name">${id}</span>
+        <span class="status ${up ? 'up' : 'down'}" style="margin-left:auto">
+          ${up ? '&#9679; alive' : '&#10005; dead'}</span>
+      </div>
+      <div class="node-addr">${cluster.members[id] || ''}</div>
+      <div class="node-keys">${up ? n.key_count : '–'} <small>keys stored</small></div>
+      <button class="crash" data-node="${id}" ${up ? '' : 'disabled'}>
+        ${up ? 'crash node' : 'offline'}</button>`;
+    el.appendChild(card);
+  }
+  el.querySelectorAll('.crash').forEach(b => b.onclick = () => crashNode(b.dataset.node));
+}
+
+async function crashNode(id) {
+  if (!confirm(`Kill ${id}? Reads should keep working via replicas.`)) return;
+  try {
+    await fetch(`/internal/kill/${id}`, { method: 'POST' });
+    log(`${id} killed — watch its keys get served by replicas`, 'ok');
+  } catch (_) {
+    log(`${id} killed (connection dropped mid-crash — expected)`, 'ok');
+  }
+}
+
+// ------------------------------------------------------------------ ring svg
+function renderRing(ring) {
+  const svg = document.getElementById('ring-svg');
+  const CX = 230, CY = 230, R = 168, TICK = 12, KEYR = R + 30;
+  const P = (pos, r) => {
+    const a = pos * 2 * Math.PI - Math.PI / 2;
+    return [CX + r * Math.cos(a), CY + r * Math.sin(a)];
+  };
+  let s = `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${css('--grid')}" stroke-width="1.5"/>`;
+  for (const v of ring.vnodes) {
+    const [x1, y1] = P(v.pos, R - TICK / 2), [x2, y2] = P(v.pos, R + TICK / 2);
+    s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"
+           stroke="${nodeColor(v.node)}" stroke-width="2" stroke-linecap="round" opacity="0.85"/>`;
+  }
+  for (const k of ring.keys) {
+    const [x, y] = P(k.pos, KEYR);
+    const primary = k.replicas[0];
+    s += `<circle cx="${x}" cy="${y}" r="4.5" fill="${nodeColor(primary)}"
+           stroke="${css('--surface')}" stroke-width="2" class="keydot"
+           data-key="${encodeURIComponent(k.key)}" data-reps="${k.replicas.join(',')}"/>`;
+    s += `<circle cx="${x}" cy="${y}" r="11" fill="transparent" class="keyhit"
+           data-key="${encodeURIComponent(k.key)}" data-reps="${k.replicas.join(',')}"/>`;
+  }
+  s += `<text x="${CX}" y="${CY - 6}" text-anchor="middle" fill="${css('--ink')}"
+         font-size="15" font-weight="650">${ring.keys.length} keys</text>
+        <text x="${CX}" y="${CY + 13}" text-anchor="middle" fill="${css('--muted')}"
+         font-size="11">ticks = virtual nodes · dots = keys</text>`;
+  svg.innerHTML = s;
+
+  const tip = document.getElementById('tooltip');
+  svg.querySelectorAll('.keyhit').forEach(c => {
+    c.addEventListener('mousemove', e => {
+      const key = decodeURIComponent(c.dataset.key);
+      const reps = c.dataset.reps.split(',');
+      tip.innerHTML = `<b>${key}</b>
+        <span class="t2">primary: ${reps[0]}<br>replicas: ${reps.slice(1).join(', ') || '—'}</span>`;
+      const box = svg.getBoundingClientRect();
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX - box.left + 14) + 'px';
+      tip.style.top  = (e.clientY - box.top  + 14) + 'px';
+    });
+    c.addEventListener('mouseleave', () => tip.style.display = 'none');
+  });
+
+  const leg = document.getElementById('legend');
+  leg.innerHTML = Object.keys(lastCluster.members).sort().map(id => {
+    const dead = lastCluster.nodes.find(n => n.node_id === id && !n.reachable);
+    return `<span style="${dead ? 'opacity:.45;text-decoration:line-through' : ''}">
+      <span class="swatch" style="background:${nodeColor(id)}"></span>${id}</span>`;
+  }).join('');
+}
+
+// ------------------------------------------------------------------ key table
+function renderKeys(ring) {
+  const el = document.getElementById('keys');
+  document.getElementById('keycount').textContent = `(${ring.keys.length})`;
+  if (!ring.keys.length) { el.innerHTML = '<div class="empty">no keys yet — PUT one above</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>key</th><th>primary</th><th>replicas</th></tr></thead><tbody>` +
+    ring.keys.map(k => `<tr>
+      <td class="keycell">${k.key}</td>
+      <td><span class="swatch" style="background:${nodeColor(k.replicas[0])}"></span>${k.replicas[0]}</td>
+      <td>${k.replicas.slice(1).join(', ') || '—'}</td></tr>`).join('') +
+    `</tbody></table>`;
+}
+
+// ------------------------------------------------------------------ operations
+function log(msg, cls) {
+  const el = document.getElementById('oplog');
+  if (el.textContent.startsWith('—')) el.textContent = '';
+  el.innerHTML += `<div class="${cls || ''}">${msg}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+function parseVal(raw) { try { return JSON.parse(raw); } catch { return raw; } }
+
+document.getElementById('opform').addEventListener('submit', async e => {
+  e.preventDefault();
+  const key = document.getElementById('opkey').value.trim();
+  const raw = document.getElementById('opval').value;
+  if (!key) return;
+  try {
+    const r = await fetch(`/kv/${encodeURIComponent(key)}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: parseVal(raw) }),
+    });
+    const j = await r.json();
+    r.ok ? log(`PUT ${key} — primary=${j.primary} acks=[${j.acks}]`, 'ok')
+         : log(`PUT ${key} — ${j.detail}`, 'err');
+  } catch (err) { log(`PUT ${key} — ${err}`, 'err'); }
+  refresh();
+});
+document.getElementById('btnget').onclick = async () => {
+  const key = document.getElementById('opkey').value.trim();
+  if (!key) return;
+  try {
+    const r = await fetch(`/kv/${encodeURIComponent(key)}`);
+    const j = await r.json();
+    r.ok ? log(`GET ${key} = ${JSON.stringify(j.value)} (served by ${j.served_by || '?'})`, 'ok')
+         : log(`GET ${key} — ${j.detail}`, 'err');
+  } catch (err) { log(`GET ${key} — ${err}`, 'err'); }
+};
+document.getElementById('btndel').onclick = async () => {
+  const key = document.getElementById('opkey').value.trim();
+  if (!key) return;
+  try {
+    const r = await fetch(`/kv/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    const j = await r.json();
+    r.ok ? log(`DELETE ${key} — acks=[${j.acks}]`, 'ok') : log(`DELETE ${key} — ${j.detail}`, 'err');
+  } catch (err) { log(`DELETE ${key} — ${err}`, 'err'); }
+  refresh();
+};
+
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>
