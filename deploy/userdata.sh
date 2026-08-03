@@ -1,5 +1,5 @@
 #!/bin/bash
-# EC2 user-data: bootstrap a PyKV cluster + dashboard on Amazon Linux 2023.
+# EC2 user-data: bootstrap a Helix cluster + dashboard on Amazon Linux 2023.
 # The deploy script substitutes __REPO_URL__ before launch.
 set -euo pipefail
 dnf install -y python3.11 python3.11-pip git
@@ -8,7 +8,7 @@ python3.11 -m pip install fastapi uvicorn requests
 
 cat > /etc/systemd/system/pykv.service <<'EOF'
 [Unit]
-Description=PyKV distributed key-value cluster
+Description=Helix distributed key-value cluster
 After=network.target
 
 [Service]

@@ -1,4 +1,4 @@
-# 3-node PyKV cluster — one container per node, DNS-based discovery.
+# 3-node Helix cluster — one container per node, DNS-based discovery.
 #   docker compose up -d --build
 # Dashboard: http://localhost:8001  (8002/8003 work too — any node serves it)
 #

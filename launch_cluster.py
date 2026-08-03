@@ -1,4 +1,4 @@
-"""Spawn a local N-node PyKV cluster (one process per node).
+"""Spawn a local N-node Helix cluster (one process per node).
 
 Usage:  python launch_cluster.py --nodes 3
 Ctrl+C stops all nodes.

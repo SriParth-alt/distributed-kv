@@ -73,7 +73,7 @@ class KVClient:
 def main():
     import argparse
 
-    p = argparse.ArgumentParser(description="PyKV client CLI")
+    p = argparse.ArgumentParser(description="Helix client CLI")
     p.add_argument("--members", required=True)
     sub = p.add_subparsers(dest="cmd", required=True)
     g = sub.add_parser("get"); g.add_argument("key")

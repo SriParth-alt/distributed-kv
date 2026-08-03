@@ -1,4 +1,4 @@
-# PyKV — Distributed Key-Value Store
+# Helix — Distributed Key-Value Store
 
 **A fault-tolerant, horizontally scalable key-value store built from scratch in Python**
 
@@ -6,12 +6,12 @@
 
 ## 1. Project Description
 
-PyKV is a distributed key-value storage system that partitions data across multiple
+Helix is a distributed key-value storage system that partitions data across multiple
 nodes using **consistent hashing**, replicates every key to **N replicas** for fault
 tolerance, and survives node failures through **heartbeat-based failure detection**
 with automatic request re-routing.
 
-Unlike a single-server cache or a wrapper around Redis, PyKV implements the core
+Unlike a single-server cache or a wrapper around Redis, Helix implements the core
 distributed-systems machinery itself:
 
 - **Data partitioning** — keys are distributed across nodes via a consistent hash
@@ -37,7 +37,7 @@ This directly mirrors the Amazon SDE JD line *"Build distributed storage, index,
 and query systems that are scalable, fault-tolerant, low cost, and easy to
 manage/use."* It demonstrates:
 
-| JD requirement | Where PyKV shows it |
+| JD requirement | Where Helix shows it |
 |---|---|
 | Distributed, multi-tiered systems | Multi-node cluster, smart client tier, storage tier |
 | Algorithms & data structures | Consistent hashing, sorted memtable, binary-searched SSTables, WAL replay |
@@ -142,7 +142,7 @@ Each limitation is a *feature* in interviews: it shows you know where the edges 
 
 ## 7. Resume Bullet (ready to paste)
 
-> **PyKV — Distributed Key-Value Store** | Python · FastAPI · Consistent Hashing · LSM Storage
+> **Helix — Distributed Key-Value Store** | Python · FastAPI · Consistent Hashing · LSM Storage
 > - Built a fault-tolerant distributed KV store from scratch: consistent-hash partitioning (150 virtual nodes/node), leader-follower replication (R=2), and heartbeat failure detection with automatic failover across a multi-node cluster.
 > - Implemented an LSM-tree-style storage engine with write-ahead logging, in-memory sorted memtable, and immutable SSTables — achieving crash durability with O(log n) reads verified by WAL-replay tests.
 > - Designed a coordinator-free smart client that hashes keys locally and retries across replicas, keeping reads available through single-node failures (demonstrated via automated kill-node demo).

@@ -1,4 +1,4 @@
-# Deploy PyKV to a single EC2 instance (all 3 nodes + dashboard on port 8001).
+# Deploy Helix to a single EC2 instance (all 3 nodes + dashboard on port 8001).
 #
 # Prereqs: AWS CLI installed and `aws configure` done; the repo pushed to GitHub.
 # Usage:   .\deploy\deploy_ec2.ps1 -RepoUrl https://github.com/<you>/distributed-kv.git
@@ -20,7 +20,7 @@ Write-Host "AMI: $ami"
 
 # Security group: dashboard port 8001 only (no SSH; use EC2 Instance Connect / SSM if needed)
 $vpc = aws ec2 describe-vpcs --filters Name=is-default,Values=true --query "Vpcs[0].VpcId" --output text
-$sg = aws ec2 create-security-group --group-name "$Name-sg" --description "PyKV dashboard" --vpc-id $vpc --query GroupId --output text
+$sg = aws ec2 create-security-group --group-name "$Name-sg" --description "Helix dashboard" --vpc-id $vpc --query GroupId --output text
 aws ec2 authorize-security-group-ingress --group-id $sg --protocol tcp --port 8001 --cidr 0.0.0.0/0 | Out-Null
 Write-Host "Security group: $sg (port 8001 open)"
 

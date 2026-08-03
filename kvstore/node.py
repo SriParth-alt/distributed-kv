@@ -31,7 +31,7 @@ from .cluster import ClusterState
 from .hashring import _hash
 from .storage import StorageEngine
 
-app = FastAPI(title="PyKV Node")
+app = FastAPI(title="Helix Node")
 state: ClusterState = None  # type: ignore
 store: StorageEngine = None  # type: ignore
 
