@@ -32,6 +32,19 @@ while the cluster is running. It shows the consistent hash ring (vnode ticks +
 key positions), per-node health and key counts, and lets you PUT/GET/DELETE keys
 and crash nodes to watch failover happen in real time.
 
+## Run with Docker (recommended)
+
+One container per node, DNS-based discovery, self-healing via `restart: always`:
+
+```bash
+docker compose up -d --build
+```
+
+Dashboard: **http://localhost:8001** (any node's port works). Click *crash node*
+to watch failover — Docker restarts the container and it rejoins the ring.
+Data survives restarts in named volumes. Tear down with `docker compose down`
+(add `-v` to also wipe the data volumes).
+
 ## Deploy to AWS
 
 One t3.micro EC2 instance runs the whole 3-node cluster + dashboard (port 8001):

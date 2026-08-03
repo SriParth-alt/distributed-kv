@@ -1,0 +1,34 @@
+# 3-node PyKV cluster — one container per node, DNS-based discovery.
+#   docker compose up -d --build
+# Dashboard: http://localhost:8001  (8002/8003 work too — any node serves it)
+#
+# `restart: always` doubles as the failover demo's self-healing: the
+# dashboard's "crash node" button kills the process, Docker restarts the
+# container, and the node rejoins the ring on its next heartbeat.
+
+x-node: &node
+  build: .
+  restart: always
+  environment: []
+
+services:
+  node1:
+    <<: *node
+    command: ["--id", "node1", "--members", '{"node1":"node1:8000","node2":"node2:8000","node3":"node3:8000"}']
+    ports: ["8001:8000"]
+    volumes: ["node1-data:/app/data"]
+  node2:
+    <<: *node
+    command: ["--id", "node2", "--members", '{"node1":"node1:8000","node2":"node2:8000","node3":"node3:8000"}']
+    ports: ["8002:8000"]
+    volumes: ["node2-data:/app/data"]
+  node3:
+    <<: *node
+    command: ["--id", "node3", "--members", '{"node1":"node1:8000","node2":"node2:8000","node3":"node3:8000"}']
+    ports: ["8003:8000"]
+    volumes: ["node3-data:/app/data"]
+
+volumes:
+  node1-data:
+  node2-data:
+  node3-data:
