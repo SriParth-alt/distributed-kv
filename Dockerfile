@@ -1,5 +1,9 @@
 # Multi-stage: build the React dashboard, then serve it from the Python node.
-# The resulting image is a single self-contained Helix node — API + UI.
+# The image is self-contained — API + WebSockets + built UI.
+#
+# Two run modes, chosen by docker-entrypoint.sh:
+#   docker compose  → passes --id/--members, so each container is one node
+#   Render/Fly/etc. → no args, so the container runs the full cluster on $PORT
 
 FROM node:22-alpine AS web
 WORKDIR /web
@@ -14,10 +18,11 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY kvstore/ kvstore/
-COPY launch_cluster.py ./
+COPY launch_cluster.py docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 # node.py serves this directory at / when it exists
 COPY --from=web /web/dist web/dist
 
-EXPOSE 8000
-# node id / members are supplied by docker-compose
-ENTRYPOINT ["python", "-m", "kvstore.node", "--host", "0.0.0.0", "--port", "8000"]
+ENV PORT=8001
+EXPOSE 8000 8001
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

@@ -31,6 +31,7 @@ import json
 import os
 import threading
 import time
+from contextlib import asynccontextmanager
 from typing import Any, Optional
 
 import requests
@@ -46,11 +47,21 @@ from .hashring import _hash
 from .observability import EventBus, Metrics
 from .storage import StorageEngine
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # The event bus publishes from sync request handlers and the heartbeat
+    # thread, so it needs the server's running loop to fan out to WebSockets.
+    bus.bind_loop(asyncio.get_running_loop())
+    bus.publish("node_started", node=state.node_id)
+    yield
+
+
 app = FastAPI(
     title="Helix API",
     description="Distributed key-value store: consistent hashing, "
                 "leader-follower replication, WAL + LSM storage.",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 state: ClusterState = None  # type: ignore
@@ -509,12 +520,6 @@ def _forward(method: str, target: str, key: str, body: dict | None = None):
 @app.get("/legacy", include_in_schema=False)
 def legacy_dashboard():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
-
-
-@app.on_event("startup")
-async def _startup():
-    bus.bind_loop(asyncio.get_running_loop())
-    bus.publish("node_started", node=state.node_id)
 
 
 # Serve the built React app at / when present (single-origin deployment);

@@ -4,16 +4,17 @@
 # node1 binds $PORT and its peers take $PORT+1/+2 internally). The service also
 # serves the built React dashboard at /, so the demo is one URL.
 #
-# Deploy: push to GitHub, then New → Blueprint on render.com and pick this repo.
+# The Dockerfile detects the no-arguments case and starts the full cluster, so
+# this works whether you deploy via Blueprint or as a plain Docker web service.
 services:
   - type: web
     name: helix
     runtime: docker
-    dockerfilePath: ./Dockerfile.render
+    dockerfilePath: ./Dockerfile
     plan: free
     healthCheckPath: /cluster/nodes
     envVars:
-      # Set HELIX_API_KEY in the Render dashboard to require a key on writes.
-      # Left unset here so the public demo stays interactive.
       - key: PYTHONUNBUFFERED
         value: "1"
+      # Set HELIX_API_KEY in the Render dashboard to require a key on writes.
+      # Left unset so the public demo stays interactive.
