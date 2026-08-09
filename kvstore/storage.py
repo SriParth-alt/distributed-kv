@@ -109,6 +109,32 @@ class StorageEngine:
             live.update(self._memtable)
             return sorted(k for k, v in live.items() if v != _TOMBSTONE)
 
+    def stats(self) -> Dict[str, Any]:
+        """Storage-engine internals for the dashboard's LSM view."""
+        with self._lock:
+            wal_bytes = (os.path.getsize(self.wal_path)
+                         if os.path.exists(self.wal_path) else 0)
+            wal_entries = 0
+            if wal_bytes:
+                with open(self.wal_path, "r", encoding="utf-8") as f:
+                    wal_entries = sum(1 for line in f if line.strip())
+            return {
+                "wal_bytes": wal_bytes,
+                "wal_entries": wal_entries,
+                "memtable_entries": len(self._memtable),
+                "memtable_limit": self.memtable_limit,
+                "memtable_fill_pct": round(
+                    len(self._memtable) / self.memtable_limit * 100, 1),
+                "sstable_count": len(self._sstables),
+                "sstables": [
+                    {"file": os.path.basename(s.path),
+                     "keys": len(s._keys),
+                     "bytes": os.path.getsize(s.path) if os.path.exists(s.path) else 0}
+                    for s in self._sstables
+                ],
+                "live_keys": len(self.keys()),
+            }
+
     # ------------------------------------------------------------------ internals
     def _wal_append(self, key: str, value: Any) -> None:
         with open(self.wal_path, "a", encoding="utf-8") as f:

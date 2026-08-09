@@ -20,14 +20,18 @@ DEAD_AFTER = 3.0           # seconds without response -> dead
 
 
 class ClusterState:
-    def __init__(self, node_id: str, members: Dict[str, str], replication: int = 2):
+    def __init__(self, node_id: str, members: Dict[str, str], replication: int = 2,
+                 on_change=None):
         """
-        node_id : this node's id, e.g. "node1"
-        members : all seed members {node_id: "host:port"}
+        node_id   : this node's id, e.g. "node1"
+        members   : all seed members {node_id: "host:port"}
+        on_change : optional callback(node_id, alive: bool) fired when a peer's
+                    liveness flips — used to publish node_up/node_down events.
         """
         self.node_id = node_id
         self.members = dict(members)
         self.replication = replication
+        self.on_change = on_change
         self.last_seen: Dict[str, float] = {n: time.time() for n in members}
         self.alive: Dict[str, bool] = {n: True for n in members}
         self._lock = threading.Lock()
@@ -57,17 +61,25 @@ class ClusterState:
 
     # ------------------------------------------------------------------ liveness
     def mark_alive(self, node_id: str) -> None:
+        flipped = False
         with self._lock:
             self.last_seen[node_id] = time.time()
             if not self.alive.get(node_id, False):
                 self.alive[node_id] = True
                 self.ring.add_node(node_id)
+                flipped = True
+        if flipped and self.on_change:
+            self.on_change(node_id, True)
 
     def _mark_dead(self, node_id: str) -> None:
+        flipped = False
         with self._lock:
             if self.alive.get(node_id, False):
                 self.alive[node_id] = False
                 self.ring.remove_node(node_id)
+                flipped = True
+        if flipped and self.on_change:
+            self.on_change(node_id, False)
 
     # ------------------------------------------------------------------ loop
     def start_heartbeats(self) -> None:

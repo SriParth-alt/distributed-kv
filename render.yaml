@@ -1,0 +1,19 @@
+# Render blueprint: one web service running the whole Helix cluster.
+#
+# All three nodes run inside the container (Render exposes a single port, so
+# node1 binds $PORT and its peers take $PORT+1/+2 internally). The service also
+# serves the built React dashboard at /, so the demo is one URL.
+#
+# Deploy: push to GitHub, then New → Blueprint on render.com and pick this repo.
+services:
+  - type: web
+    name: helix
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    plan: free
+    healthCheckPath: /cluster/nodes
+    envVars:
+      # Set HELIX_API_KEY in the Render dashboard to require a key on writes.
+      # Left unset here so the public demo stays interactive.
+      - key: PYTHONUNBUFFERED
+        value: "1"

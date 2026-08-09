@@ -1,4 +1,9 @@
+# Backend + demo dependencies.
+# streamlit is here because Streamlit Community Cloud installs from this file
+# and hosts the legacy dashboard (streamlit_app.py). The React dashboard in
+# web/ does not need it; drop this line once the React demo replaces it.
 fastapi
-uvicorn
+uvicorn[standard]
+websockets
 requests
 streamlit>=1.37

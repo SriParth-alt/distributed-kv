@@ -15,8 +15,8 @@ BASE_PORT = 8001
 PID_FILE = "cluster.pids"
 
 
-def members_for(n: int) -> dict:
-    return {f"node{i+1}": f"127.0.0.1:{BASE_PORT + i}" for i in range(n)}
+def members_for(n: int, base_port: int = BASE_PORT) -> dict:
+    return {f"node{i+1}": f"127.0.0.1:{base_port + i}" for i in range(n)}
 
 
 def kill_stale_nodes():
@@ -50,10 +50,13 @@ def main():
                    help="bind address for nodes (0.0.0.0 to expose, e.g. on a server)")
     p.add_argument("--revive", type=float, default=0,
                    help="seconds after which a dead node is restarted (0 = never)")
+    p.add_argument("--base-port", type=int, default=BASE_PORT,
+                   help="port of node1; peers take the next ports. On PaaS hosts "
+                        "that expose a single port, pass $PORT here.")
     args = p.parse_args()
 
     kill_stale_nodes()
-    members = members_for(args.nodes)
+    members = members_for(args.nodes, args.base_port)
     members_json = json.dumps(members)
     node_ids = list(members)
     cmds = []
