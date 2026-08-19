@@ -1,7 +1,7 @@
 # Helix — Distributed Key-Value Store
 
 A fault-tolerant, horizontally scalable key-value store built from scratch in
-Python, with a **React + TypeScript** dashboard for live cluster visualization.
+Python, with a **React + TypeScript** dashboard for live cluster visualisation.
 
 Consistent hashing · leader-follower replication · WAL + LSM storage · heartbeat
 failure detection · REST + WebSocket API · coordinator-free smart client.
