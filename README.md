@@ -53,7 +53,7 @@ Dashboard at **http://localhost:8001** — any node's port serves it.
 
 | Page | What it shows |
 |---|---|
-| **Cluster** (`/`) | Hash-ring visualization (vnode ticks + key placement), node health cards with live key counts and memtable fill, and a WebSocket event feed covering the whole cluster. Crash any node and watch failover. |
+| **Cluster** (`/`) | Hash-ring visualisation (vnode ticks + key placement), node health cards with live key counts and memtable fill, and a WebSocket event feed covering the whole cluster. Crash any node and watch failover. |
 | **KV Explorer** (`/explore`) | PUT/GET/DELETE against the live cluster. Shows the key's MD5, its ring position, the clockwise walk to primary + replicas, and per-write WAL fsync and replication-lag timings. |
 | **Internals** (`/internals`) | Per-node LSM state: WAL entries/bytes, memtable fill, SSTable levels — plus the live replication stream. |
 | **Metrics** (`/metrics`) | Cluster throughput over time, latency percentiles, per-node load distribution (Recharts). |
@@ -81,9 +81,11 @@ open demo mode. **CORS:** set `HELIX_CORS_ORIGINS` to your frontend origin.
 
 ## Deployment
 
-- **Backend + dashboard, one URL** — [`render.yaml`](render.yaml) +
-  [`Dockerfile.render`](Dockerfile.render) run the full cluster behind a single
-  port on Render's free tier. Push, then New → Blueprint.
+- **Backend + dashboard, one URL** — [`render.yaml`](render.yaml) runs the full
+  cluster behind a single port on Render's free tier. The image picks its mode
+  from its arguments, so Blueprint and plain Docker web-service deploys both
+  work: with `--id` it runs one node (Compose), with no arguments it runs the
+  whole cluster on `$PORT`.
 - **Frontend on Vercel** — deploy `web/` with root directory `web`; set
   `VITE_API_BASE` to your backend URL, and `HELIX_CORS_ORIGINS` to the Vercel
   origin on the backend.
