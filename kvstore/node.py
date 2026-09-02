@@ -69,6 +69,13 @@ store: StorageEngine = None  # type: ignore
 bus = EventBus()
 metrics = Metrics()
 
+# Pooled session for node→node RPC (replication, forwarding, status, events).
+# Without pooling every internal call opens a fresh TCP connection, which adds
+# a handshake to each replicated write and exhausts ephemeral ports under load.
+rpc = requests.Session()
+rpc.mount("http://", requests.adapters.HTTPAdapter(
+    pool_connections=32, pool_maxsize=128, max_retries=0))
+
 RING_SPAN = 2 ** 128  # md5 hash space; ring positions normalized to [0,1)
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 WEB_DIST = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web", "dist")
@@ -201,7 +208,7 @@ def _gather_nodes() -> list[dict]:
             nodes.append(s)
             continue
         try:
-            s = requests.get(f"http://{addr}/internal/status", timeout=1.0).json()
+            s = rpc.get(f"http://{addr}/internal/status", timeout=1.0).json()
             s["reachable"] = True
         except requests.RequestException:
             s = {"node_id": peer, "reachable": False, "key_count": 0, "keys": [],
@@ -281,7 +288,7 @@ def cluster_metrics():
         nid = n["node_id"]
         if nid != state.node_id and n.get("reachable"):
             try:
-                snapshots[nid] = requests.get(
+                snapshots[nid] = rpc.get(
                     f"http://{state.members[nid]}/internal/metrics", timeout=1.0).json()
             except (requests.RequestException, ValueError):
                 pass
@@ -343,7 +350,7 @@ def kill_peer(node_id: str):
     if not addr:
         raise HTTPException(status_code=404, detail=f"unknown node {node_id}")
     try:
-        return requests.post(f"http://{addr}/internal/die", timeout=1.5).json()
+        return rpc.post(f"http://{addr}/internal/die", timeout=1.5).json()
     except requests.RequestException as e:
         raise HTTPException(status_code=502, detail=f"could not reach {node_id}: {e}")
 
@@ -370,7 +377,7 @@ async def cluster_events(ws: WebSocket):
                 since = seen_peer_seq.get(peer, 0)
                 try:
                     r = await asyncio.to_thread(
-                        requests.get,
+                        rpc.get,
                         f"http://{addr}/internal/events?since={since}", timeout=1.0)
                     for ev in r.json().get("events", []):
                         seen_peer_seq[peer] = max(seen_peer_seq.get(peer, 0), ev["seq"])
@@ -473,7 +480,7 @@ def _primary_write(key: str, value: Any, replicas: list[str], is_delete: bool = 
     for peer in replicas[1:]:
         t1 = time.perf_counter()
         try:
-            r = requests.post(
+            r = rpc.post(
                 f"http://{state.address(peer)}/internal/replicate",
                 json={"key": key, "value": value, "delete": is_delete,
                       "from": state.node_id},
@@ -501,7 +508,7 @@ def _primary_write(key: str, value: Any, replicas: list[str], is_delete: bool = 
 
 def _forward(method: str, target: str, key: str, body: dict | None = None):
     try:
-        r = requests.request(
+        r = rpc.request(
             method, f"http://{state.address(target)}/kv/{key}",
             json=body, timeout=2.0,
         )

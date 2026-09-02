@@ -92,6 +92,53 @@ open demo mode. **CORS:** set `HELIX_CORS_ORIGINS` to your frontend origin.
 - **AWS EC2** — [`deploy/deploy_ec2.ps1`](deploy/deploy_ec2.ps1) if you want it
   on your own instance.
 
+## Benchmarks
+
+Reproduce with [`bench.py`](bench.py) — N concurrent clients fire a fixed
+number of operations, wall time is measured, and **only successful operations
+count toward throughput**:
+
+```bash
+python launch_cluster.py --nodes 3     # terminal 1
+python bench.py --report               # terminal 2
+```
+
+**Conditions:** 3 nodes, replication factor 2, 500-key keyspace, 3,000 ops per
+run. All three nodes run as separate processes on one machine (Intel i7-13700HX,
+24 logical cores, NVMe SSD, Windows) — so this measures the implementation, not
+a multi-machine deployment's ceiling. Clients hash keys locally and call the
+primary directly (the coordinator-free path). Run-to-run variance < 2%.
+
+| Workload | Clients | Throughput | p50 | p95 | p99 |
+|---|--:|--:|--:|--:|--:|
+| Read 100% | 8 | **1,840 ops/s** | 4.2 ms | 6.4 ms | 7.5 ms |
+| Read 100% | 32 | 1,825 ops/s | 16.2 ms | 26.9 ms | 32.5 ms |
+| Write 100% (durable + replicated) | 32 | **1,180 ops/s** | 29.0 ms | 40.2 ms | 49.1 ms |
+| Write 100% | 8 | 1,035 ops/s | 7.1 ms | 12.9 ms | 18.7 ms |
+| Mixed 90R/10W | 8 | **1,780 ops/s** | 4.1 ms | 7.6 ms | 9.9 ms |
+| Single client (read / write) | 1 | 1,120 / 320 ops/s | 0.8 / 2.9 ms | — | — |
+
+Every write is fsync'd to the WAL **and** synchronously replicated before it is
+acknowledged, so write throughput is bounded by disk durability plus a replica
+round-trip — that is the intended trade-off, not a bottleneck.
+
+**Smart client vs. entry-node routing** — the same 100%-write load at 32
+clients, routed two ways:
+
+| Routing | Throughput | p50 |
+|---|--:|--:|
+| Smart client (hash locally → primary) | 1,180 ops/s | 29 ms |
+| Entry node (all requests to node1, forwarded) | 730 ops/s | 38 ms |
+
+Client-side routing is ~1.6× faster because it removes an extra network hop per
+misdirected request — the reason the client library owns a copy of the ring.
+
+> Load testing surfaced a real bottleneck: inter-node calls (replication,
+> forwarding, heartbeats) each opened a **new TCP connection**, which exhausted
+> ephemeral ports under sustained load — ~1,000 failed requests per run at 32
+> clients. Pooling those connections eliminated the errors and took forwarded
+> writes from 215 → 730 ops/s (3.4×).
+
 ## Tests
 
 ```bash

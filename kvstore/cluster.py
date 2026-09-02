@@ -18,6 +18,12 @@ from .hashring import HashRing
 HEARTBEAT_INTERVAL = 1.0   # seconds between heartbeat rounds
 DEAD_AFTER = 3.0           # seconds without response -> dead
 
+# Pooled session: heartbeats fire every second to every peer forever, so a new
+# TCP connection per beat is pure waste.
+_hb = requests.Session()
+_hb.mount("http://", requests.adapters.HTTPAdapter(
+    pool_connections=8, pool_maxsize=16, max_retries=0))
+
 
 class ClusterState:
     def __init__(self, node_id: str, members: Dict[str, str], replication: int = 2,
@@ -95,7 +101,7 @@ class ClusterState:
                 if peer == self.node_id:
                     continue
                 try:
-                    r = requests.post(
+                    r = _hb.post(
                         f"http://{addr}/internal/heartbeat",
                         json={"from": self.node_id},
                         timeout=0.8,
